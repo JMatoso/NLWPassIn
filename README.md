@@ -1,3 +1,3 @@
 # PassIn
 
-Aplicação back-end em C# desenvolvida durante o NLW Unite da Rocketseat.
+Back-end application in C# developed during Rocketseat's NLW Unite. For managing participants at an in-person event.
