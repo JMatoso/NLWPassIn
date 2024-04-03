@@ -1,28 +1,33 @@
-using Microsoft.EntityFrameworkCore;
 using PassIn.Communication.Requests;
 using PassIn.Communication.Responses;
 using PassIn.Exceptions;
 using PassIn.Infrastructure;
 
 namespace PassIn.Application.UseCases.Events.Register;
-public class RegisterEventUseCase
+
+public interface IRegisterEventUseCase
 {
-    public ResponseEventJson Execute(RequestEventJson request)
+    Task<ResponseEventJson> ExecuteAsync(RequestEventJson request);
+}
+
+public class RegisterEventUseCase(PassInDbContext dbContext) : IRegisterEventUseCase
+{
+    private readonly PassInDbContext _dbContext = dbContext;
+
+    public async Task<ResponseEventJson> ExecuteAsync(RequestEventJson request)
     {
         Validate(request);
 
-        var dbContext = new PassInDbContext();
-
         var entity = new Infrastructure.Entities.Event
-        {   
+        {
             Title = request.Title,
             Details = request.Details,
-            Maximum_Attendees = request.MaximumAttendees,
-            Slug = request.Title.ToLower().Replace(" ", "-"),
+            MaximumAttendees = request.MaximumAttendees,
+            Slug = request.Title,
         };
 
-        dbContext.Events.Add(entity);
-        dbContext.SaveChanges();
+        await _dbContext.Events.AddAsync(entity);
+        await _dbContext.SaveChangesAsync();
 
         return new ResponseEventJson
         {
@@ -30,7 +35,7 @@ public class RegisterEventUseCase
         };
     }
 
-    public void Validate(RequestEventJson request)
+    private static void Validate(RequestEventJson request)
     {
         if (request.MaximumAttendees <= 0)
         {

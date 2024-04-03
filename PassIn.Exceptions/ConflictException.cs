@@ -1,7 +1,3 @@
 namespace PassIn.Exceptions;
-public class ConflictException : PassInException
-{
-    public ConflictException(string message) : base(message)
-    {
-    }
-}
+
+public class ConflictException(string message) : PassInException(message) {}

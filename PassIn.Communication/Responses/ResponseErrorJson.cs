@@ -1,10 +1,6 @@
 ﻿namespace PassIn.Communication.Responses;
-public class ResponseErrorJson
-{
-    public string Message { get; set; } = string.Empty;
 
-    public ResponseErrorJson(string message)
-    {
-        Message = message;
-    }
+public class ResponseErrorJson(string message)
+{
+    public string Message { get; set; } = message;
 }

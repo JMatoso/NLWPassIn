@@ -1,12 +1,21 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PassIn.Infrastructure.Entities;
 
+[Table("CheckIns")]
 public class CheckIn
 {
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; } = Guid.NewGuid();
-    public DateTime Created_at { get; set; }
-    public Guid Attendee_Id { get; set; }
-    [ForeignKey("Attendee_Id")]
+
+    [DataType(DataType.DateTime)]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Required]
+    public Guid? AttendeeId { get; set; }
+
+    [ForeignKey("AttendeeId")]
     public Attendee Attendee { get; set; } = default!;
 }

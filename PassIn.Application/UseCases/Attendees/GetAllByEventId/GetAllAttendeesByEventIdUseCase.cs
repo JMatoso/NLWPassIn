@@ -5,29 +5,35 @@ using PassIn.Infrastructure;
 
 namespace PassIn.Application.UseCases.Attendees.GetAllByEventId;
 
-public class GetAllAttendeesByEventIdUseCase
+public interface IGetAllAttendeesByEventIdUseCase
 {
-    private readonly PassInDbContext _dbContext;
+    Task<ResponseAllAttendeesJson> ExecuteAsync(Guid eventId);
+}
 
-    public GetAllAttendeesByEventIdUseCase()
+public class GetAllAttendeesByEventIdUseCase(PassInDbContext passInDbContext) : IGetAllAttendeesByEventIdUseCase
+{
+    private readonly PassInDbContext _dbContext = passInDbContext;
+
+    public async Task<ResponseAllAttendeesJson> ExecuteAsync(Guid eventId)
     {
-        _dbContext = new PassInDbContext();
-    }
-    public ResponseAllAttendeesJson Execute(Guid eventId)
-    {
-        var entity = _dbContext.Events.Include(ev => ev.Attendees).ThenInclude(attendee => attendee.CheckIn).FirstOrDefault();
-        if (entity is null)
-            throw new NotFoundException("An event with this id does not exist.");
-        
-        return new ResponseAllAttendeesJson
-        {
-            Attendees = entity.Attendees.Select(attendee => new ResponseAttendeeJson
+        var entity = await _dbContext
+            .Events
+            .Include(ev => ev.Attendees)
+            .ThenInclude(attendee => attendee.CheckIn)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        return entity is null ?
+            throw new NotFoundException("An event with this id does not exist.") :
+            new ResponseAllAttendeesJson
             {
-                Id = attendee.Id,
-                Name = attendee.Name,
-                Email = attendee.Email,
-                CheckedInAt = attendee.CheckIn?.Created_at
-            }).ToList()
-        };
+                Attendees = entity.Attendees.Select(attendee => new ResponseAttendeeJson
+                {
+                    Id = attendee.Id,
+                    Name = attendee.Name,
+                    Email = attendee.Email,
+                    CheckedInAt = attendee.CheckIn?.CreatedAt
+                }).ToList()
+            };
     }
 }

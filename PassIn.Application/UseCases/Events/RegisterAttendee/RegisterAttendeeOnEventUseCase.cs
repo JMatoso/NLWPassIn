@@ -1,5 +1,5 @@
 using System.Net.Mail;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using PassIn.Communication.Requests;
 using PassIn.Communication.Responses;
 using PassIn.Exceptions;
@@ -8,28 +8,29 @@ using PassIn.Infrastructure.Entities;
 
 namespace PassIn.Application.UseCases.Events.RegisterAttendee;
 
-public class RegisterAttendeeOnEventUseCase
+public interface IRegisterAttendeeOnEventUseCase
 {
-    private readonly PassInDbContext _dbContext;
+    Task<ResponseRegisterJson> ExecuteAsync(Guid eventId, RequestRegisterEventJson request);
+}
 
-    public RegisterAttendeeOnEventUseCase()
-    {
-        _dbContext = new PassInDbContext();
-    }
-    public ResponseRegisterJson Execute(Guid eventId, RequestRegisterEventJson request)
-    {
-        Validate(eventId, request);
+public class RegisterAttendeeOnEventUseCase(PassInDbContext passInDbContext) : IRegisterAttendeeOnEventUseCase
+{
+    private readonly PassInDbContext _dbContext = passInDbContext;
 
-        var entity = new Infrastructure.Entities.Attendee
-        {   
+    public async Task<ResponseRegisterJson> ExecuteAsync(Guid eventId, RequestRegisterEventJson request)
+    {
+        await ValidateAsync(eventId, request);
+
+        var entity = new Attendee
+        {
             Email = request.Email,
             Name = request.Name,
-            Event_Id = eventId,
-            Created_At = DateTime.UtcNow,
+            EventId = eventId,
+            CreatedAt = DateTime.UtcNow,
         };
 
-        _dbContext.Attendees.Add(entity);
-        _dbContext.SaveChanges();
+        await _dbContext.Attendees.AddAsync(entity);
+        await _dbContext.SaveChangesAsync();
 
         return new ResponseRegisterJson
         {
@@ -37,45 +38,47 @@ public class RegisterAttendeeOnEventUseCase
         };
     }
 
-    private void Validate(Guid eventId, RequestRegisterEventJson request)
+    private async Task ValidateAsync(Guid eventId, RequestRegisterEventJson request)
     {
-        var eventEntity = _dbContext.Events.Find(eventId);
-        if (eventEntity is null)
-            throw new NotFoundException("An event with this id does not exist.");
+        var eventEntity = await _dbContext.Events.FindAsync(eventId) ??
+                throw new NotFoundException("An event with this id does not exist.");
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ErrorOnValidationException("The name is invalid.");
         }
 
-        var emailIsValid = EmailIsValid(request.Email);
-        if (emailIsValid == false)
+        if (!EmailIsValid(request.Email))
         {
             throw new ErrorOnValidationException("The e-mail is invalid.");
         }
 
-        var attendeeAlreadyRegistered = _dbContext
+        var attendeeAlreadyRegistered = await _dbContext
             .Attendees
-            .Any(attendee => attendee.Email.Equals(request.Email) && attendee.Event_Id == eventId);
-        
+            .AsNoTracking()
+            .AnyAsync(attendee => attendee.Email.Equals(request.Email) && attendee.EventId == eventId);
+
         if (attendeeAlreadyRegistered)
         {
             throw new ConflictException("You can not register twice on the event.");
         }
 
-        var attendeesForEvent =  _dbContext.Attendees.Count(attendee => attendee.Event_Id == eventId);
-        if (attendeesForEvent == eventEntity.Maximum_Attendees)
+        var attendeesForEvent = await _dbContext
+            .Attendees
+            .AsNoTracking()
+            .CountAsync(attendee => attendee.EventId == eventId);
+
+        if (attendeesForEvent == eventEntity.MaximumAttendees)
         {
             throw new ErrorOnValidationException("There is no room for this event.");
         }
     }
 
-    private bool EmailIsValid(string email)
+    private static bool EmailIsValid(string email)
     {
         try
         {
-            new MailAddress(email);
-
+            _ = new MailAddress(email);
             return true;
         }
         catch

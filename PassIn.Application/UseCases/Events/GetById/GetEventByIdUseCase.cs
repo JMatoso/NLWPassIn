@@ -1,25 +1,40 @@
+using Microsoft.EntityFrameworkCore;
 using PassIn.Communication.Responses;
 using PassIn.Exceptions;
 using PassIn.Infrastructure;
 
 namespace PassIn.Application.UseCases.Events.Register;
-public class GetEventByIdUseCase
+
+public interface IGetEventByIdUseCase
 {
-    public ResponseEventJson Execute(Guid id)
+    Task<ResponseEventJson> ExecuteAsync(Guid id);
+}
+
+public class GetEventByIdUseCase(PassInDbContext passInDbContext) : IGetEventByIdUseCase
+{
+    private readonly PassInDbContext _dbContext = passInDbContext;
+
+    public async Task<ResponseEventJson> ExecuteAsync(Guid id)
     {
-        var dbContext = new PassInDbContext();
+        var entity = await _dbContext.Events.Include(x => x.Attendees).FirstOrDefaultAsync(x => x.Id == id);
 
-        var entity = dbContext.Events.Find(id);
-        if (entity is null)
-            throw new NotFoundException("An event with this id dont exist.");
-
-        return new ResponseEventJson
-        {
-            Id = entity.Id,
-            Title = entity.Title,
-            Details = entity.Details,
-            MaximumAttendees = entity.Maximum_Attendees,
-            AttendeesAmount = -1
-        };
+        return entity is null ?
+            throw new NotFoundException("An event with this id doesn't exist.") :
+            new ResponseEventJson
+            {
+                Id = entity.Id,
+                Slug = entity.Slug,
+                Title = entity.Title,
+                Details = entity.Details,
+                MaximumAttendees = entity.MaximumAttendees,
+                AttendeesAmount = entity.Attendees.Count,
+                Attendees = entity.Attendees.Select(x => new ResponseAttendeeJson
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    Email = x.Email,
+                    CreatedAt = x.CreatedAt,
+                }).ToList(),
+            };
     }
 }
