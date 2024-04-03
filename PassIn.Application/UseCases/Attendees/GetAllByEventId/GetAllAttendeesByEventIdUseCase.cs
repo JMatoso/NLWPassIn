@@ -32,6 +32,7 @@ public class GetAllAttendeesByEventIdUseCase(PassInDbContext passInDbContext) : 
                     Id = attendee.Id,
                     Name = attendee.Name,
                     Email = attendee.Email,
+                    CreatedAt = attendee.CreatedAt,
                     CheckedInAt = attendee.CheckIn?.CreatedAt
                 }).ToList()
             };
